@@ -1,0 +1,168 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Flappy Bird - Bird's Nest</title>
+    <style>
+        body { text-align: center; font-family: Arial, sans-serif; }
+        canvas { background: lightblue; display: block; margin: auto; }
+        .shop { display: none; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background: white; padding: 20px; border: 2px solid black; }
+    </style>
+</head>
+<body>
+    <h1>Flappy Bird Game</h1>
+    <p>Bird's Food: <span id="foodCount">0</span></p>
+    <button onclick="restartGame()">Restart</button>
+    <button onclick="openShop()">Bird's Nest (Shop)</button>
+    <canvas id="gameCanvas" width="400" height="500"></canvas>
+
+    <div class="shop" id="shop">
+        <h2>Bird's Nest - Shop</h2>
+        <button onclick="buySkin('red', 10)">Red Bird (10 Food)</button>
+        <button onclick="buySkin('blue', 20)">Blue Bird (20 Food)</button>
+        <button onclick="closeShop()">Close</button>
+    </div>
+
+    <audio id="flapSound" src="flap.mp3"></audio>
+    <audio id="pointSound" src="point.mp3"></audio>
+    <audio id="hitSound" src="hit.mp3"></audio>
+    <audio id="buySound" src="buy.mp3"></audio>
+
+    <script>
+        const canvas = document.getElementById("gameCanvas");
+        const ctx = canvas.getContext("2d");
+
+        let bird = { x: 50, y: 250, width: 20, height: 20, gravity: 0.6, lift: -10, velocity: 0, color: "yellow" };
+        let pipes = [], foodItems = [];
+        let foodCollected = parseInt(localStorage.getItem("food")) || 0;
+        document.getElementById("foodCount").innerText = foodCollected;
+        let gameRunning = true;
+
+        function drawBird() {
+            ctx.fillStyle = bird.color;
+            ctx.fillRect(bird.x, bird.y, bird.width, bird.height);
+        }
+
+        function update() {
+            if (!gameRunning) return;
+            bird.velocity += bird.gravity;
+            bird.y += bird.velocity;
+            if (bird.y + bird.height > canvas.height || bird.y < 0) {
+                playSound("hitSound");
+                endGame();
+            }
+
+            pipes.forEach((pipe, index) => {
+                pipe.x -= 2;
+                if (pipe.x + pipe.width < 0) pipes.splice(index, 1);
+                if (bird.x < pipe.x + pipe.width && bird.x + bird.width > pipe.x &&
+                    (bird.y < pipe.top || bird.y + bird.height > canvas.height - pipe.bottom)) {
+                    playSound("hitSound");
+                    endGame();
+                }
+            });
+
+            foodItems.forEach((food, index) => {
+                food.x -= 2;
+                if (food.x + food.size < 0) foodItems.splice(index, 1);
+                if (bird.x < food.x + food.size && bird.x + bird.width > food.x &&
+                    bird.y < food.y + food.size && bird.y + bird.height > food.y) {
+                    foodItems.splice(index, 1);
+                    foodCollected++;
+                    playSound("pointSound");
+                    localStorage.setItem("food", foodCollected);
+                    document.getElementById("foodCount").innerText = foodCollected;
+                }
+            });
+        }
+
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            drawBird();
+            pipes.forEach(pipe => {
+                ctx.fillStyle = "green";
+                ctx.fillRect(pipe.x, 0, pipe.width, pipe.top);
+                ctx.fillRect(pipe.x, canvas.height - pipe.bottom, pipe.width, pipe.bottom);
+            });
+            foodItems.forEach(food => {
+                ctx.fillStyle = "gold";
+                ctx.beginPath();
+                ctx.arc(food.x, food.y, food.size, 0, Math.PI * 2);
+                ctx.fill();
+            });
+        }
+
+        function gameLoop() {
+            update();
+            draw();
+            requestAnimationFrame(gameLoop);
+        }
+
+        function jump() {
+            bird.velocity = bird.lift;
+            playSound("flapSound");
+        }
+
+        function spawnPipes() {
+            let gap = 120;
+            let topHeight = Math.random() * (canvas.height / 2);
+            let spacing = 250;
+            pipes.push({ x: canvas.width + spacing, width: 40, top: topHeight, bottom: canvas.height - (topHeight + gap) });
+        }
+
+        function spawnFood() {
+            let y = Math.random() * (canvas.height - 40);
+            foodItems.push({ x: canvas.width + 200, y: y, size: 5 });
+        }
+
+        function restartGame() {
+            bird.y = 250;
+            bird.velocity = 0;
+            pipes = [];
+            foodItems = [];
+            gameRunning = true;
+            setInterval(spawnPipes, 2000);
+            setInterval(spawnFood, 3000);
+        }
+
+        function endGame() {
+            gameRunning = false;
+        }
+
+        function openShop() {
+            document.getElementById("shop").style.display = "block";
+        }
+
+        function closeShop() {
+            document.getElementById("shop").style.display = "none";
+        }
+
+        function buySkin(color, cost) {
+            if (foodCollected >= cost) {
+                foodCollected -= cost;
+                playSound("buySound");
+                localStorage.setItem("food", foodCollected);
+                document.getElementById("foodCount").innerText = foodCollected;
+                bird.color = color;
+                alert("New Bird Color Equipped!");
+            } else {
+                alert("Not enough Bird Food!");
+            }
+        }
+
+        function playSound(soundId) {
+            const sound = document.getElementById(soundId);
+            if (sound) {
+                sound.currentTime = 0;
+                sound.play();
+            }
+        }
+
+        document.addEventListener("keydown", jump);
+        restartGame();
+        gameLoop();
+    </script>
+</body>
+</html>
+           
